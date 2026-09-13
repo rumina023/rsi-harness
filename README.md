@@ -1,4 +1,10 @@
-# RSI Harness / 実測する自己改善ハーネス
+# Bounded RSI Evaluation Harness / 実測する自己改善ハーネス
+
+> **研究用の合成テストベッドです。AGI、継続的なrecursive
+> self-improvement、または配備可能な自己改変を実証するものではありません。**
+> 2026-09-14の12 seed・4世代アブレーションでは、recursive優位は事前登録済みの
+> 統計基準を満たしませんでした。詳細は
+> [RSI_TESTBED_RESULTS_2026-09-14.md](RSI_TESTBED_RESULTS_2026-09-14.md) を参照してください。
 
 限定された合成探索課題で、提案・測定・採用/棄却・次世代への継承を行う研究プロトタイプです。汎用AGI、深い意味理解、継続的なRSIの達成を示すものではありません。
 
@@ -12,7 +18,7 @@ Python 3.10以上、Python標準ライブラリのみで動作します。まず
 
 Anchor Verifierはルールベースの試作です。属性分解・再構成・反証候補の生成を行いますが、再構成できることは真理の証明ではありません。`anchor_gate.py` は数値比較から証拠を作る補助ゲートであり、独立した意味的検証を実証していません。基本ループの `harness.py` は数値ゲートを使い、Anchorゲートは `staged.py` に接続されています。
 
-過去の実験概要は [結果.md](結果.md) にあります。テスト数などは当時の記録です。ライセンスは未設定です。
+過去の実験概要は [結果.md](結果.md) にあります。テスト数などは当時の記録です。ライセンスは [MIT](LICENSE) です。
 
 ## 段階的な候補選別版
 
@@ -36,3 +42,23 @@ python harness.py --model gpt-6-astra --generations 3
 `runs/` にリクエスト、応答、イベント、前後の点数、採用状態、最終レポートを保存します。過去の仕事として参照するのは本実験の履歴だけです。基盤モデルの内部知識データベースへ直接アクセスする機能はありません。最終評価300課題は改善中には使用しません。
 
 これは限定された合成探索課題での閉ループ実験です。ベースラインは意図的に単純なランダム探索です。通常のポリシー最適化を超えるRSIの証明には、改善指示を固定した対照群との同予算比較、複数回の独立実験、未知分野への汎化検証が追加で必要です。
+
+## 改善能力を測るRSIテストベッド
+
+`rsi_testbed.py` は、性能そのものではなく「過去の改善実験を使って次の改善を発見する能力」を反証可能に測る、オフラインの追加テストベッドです。
+
+```powershell
+python -m unittest -v
+python rsi_testbed.py --seeds 12 --generations 4
+python rsi_testbed.py --seeds 12 --generations 4 --ablations
+```
+
+各世代では Builder、Critic、Adversary、Judge、Research Memory、Meta-Optimizer を循環させます。可変なのは `policy`、`prompt`、`memory`、`tools`、`algorithm`、`agent_topology` に対応するデータのみです。セキュリティ境界、提案数と探索コール数の資源上限、開発Judge、最終external evaluator、採択規則は候補データから隔離され、実行中に境界ダイジェストで検査されます。
+
+同一seed・同一計算予算で、改善記録を保持するrecursive群と、毎世代Research Memoryを空にするfrozen群を比較します。`P_t` と `I_t` を比較可能にするため、両群とも採択済みpolicy自体は現在の候補として保持します。frozen群には過去の成功・失敗・反証という改善知識を一切渡さず、Meta-Optimizerも固定です。世代ごとに `P_t`、検証済み改善量 `I_t=P_{t+1}-P_t`、ゼロ除算を除外した加速率 `A_t=I_{t+1}/I_t` を保存します。最終比較は未使用の固定external evaluatorに加え、31-bit・環状相互作用・deceptive blockという異なる地形の未知domain evaluatorでも行い、性能・robustness・falsification・generalization・cost efficiencyを別々に記録します。主解析はseed対応のブートストラップ区間と符号置換検定です。
+
+`--ablations` は `memory-only`、`meta-only`、`algorithm-only` も追加します。metaを使う群には、最初の3世代だけ全員同一の事前登録済みschedule probeを与え、それ以後のscheduleだけを記憶された検証結果で選択します。`algorithm-only` は同じprobeを知識なしで固定巡回します。これにより、差が出たとしても「経験記憶」「経験で更新されたMeta-Optimizer」「知識を継承しない固定アルゴリズム変化」のどれが寄与したかを、frozen群との対応比較で切り分けます。
+
+この試験は合成タスク、固定の候補生成規則、少数の探索カテゴリーに限られます。統計的な差が出ても、一般的なrecursive self-improvement、AGI、または配備可否の根拠にはなりません。
+
+2026-09-14の12 seed・4世代アブレーション結果は [RSI_TESTBED_RESULTS_2026-09-14.md](RSI_TESTBED_RESULTS_2026-09-14.md) に記録しています。事前登録済みの判定基準ではrecursive優位は確認されませんでした。
